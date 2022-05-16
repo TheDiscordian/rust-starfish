@@ -1,0 +1,24 @@
+[package]
+name = "starfish"
+version = "1.0.0"
+edition = "2021"
+description = "*><> is a stack-based, reflective, two-dimensional esoteric programming language based directly off of ><>."
+authors = ["Discordian"]
+
+[lib]
+name = "starfish"
+path = "src/lib.rs"
+
+[[bin]]
+name = "starfish"
+path = "src/bin/bin.rs"
+
+[profile.release]
+lto = true
+strip = true
+codegen-units = 1
+
+[dependencies]
+chrono = "0.4.19"
+clap = { version = "3.1.18", features = ["derive"] }
+rand = "0.8.5"

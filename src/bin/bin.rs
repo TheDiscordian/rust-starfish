@@ -1,6 +1,6 @@
-use starfish::*;
-use std::{fs, time, thread};
 use clap::Parser;
+use starfish::*;
+use std::{fs, thread, time};
 
 #[derive(Parser, Debug)]
 #[clap(version, about, long_about = None)]
@@ -32,7 +32,7 @@ pub fn main() {
 
     let mut end = false;
     let mut output: Option<String>;
-    
+
     while !end {
         if args.output_codebox {
             codebox.print(false);
@@ -44,7 +44,7 @@ pub fn main() {
         (output, end) = codebox.swim();
         match output {
             Some(val) => print!("{}", val),
-            None => {},
+            None => {}
         }
 
         if args.delay > 0 {

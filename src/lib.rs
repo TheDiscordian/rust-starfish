@@ -1,12 +1,12 @@
 // Spec: https://esolangs.org/wiki/Starfish
-use std::{char, thread, time, str, io, panic};
 use std::fs::File;
-use std::sync::mpsc::{channel, Receiver};
-use std::io::{Write, Read, stdout};
+use std::io::{stdout, Read, Write};
 use std::process;
+use std::sync::mpsc::{channel, Receiver};
+use std::{char, io, panic, str, thread, time};
 
-use rand::Rng;
 use chrono::prelude::*;
+use rand::Rng;
 
 fn crash() {
     println!("something smells fishy...");
@@ -57,7 +57,10 @@ impl Stack {
 
     /// output information about the stack
     pub fn output(&self) {
-        println!("stack: {:?}\nregister: {}, filled_register: {}", self.s, self.register, self.filled_register);
+        println!(
+            "stack: {:?}\nregister: {}, filled_register: {}",
+            self.s, self.register, self.filled_register
+        );
     }
 
     /// push r to the end of the stack
@@ -83,27 +86,28 @@ impl Stack {
 
     /// extend implements ":".
     pub fn extend(&mut self) {
-        self.s.push(self.s[self.s.len()-1]);
+        self.s.push(self.s[self.s.len() - 1]);
     }
 
     /// reverse implements "r".
-    pub fn reverse(&mut self)  {
+    pub fn reverse(&mut self) {
         self.s.reverse();
     }
 
     /// swap_two implements "$".
     pub fn swap_two(&mut self) {
         let len = self.s.len();
-        self.s.swap(len-2, len-1);
+        self.s.swap(len - 2, len - 1);
     }
 
     /// swap_three implements "@": with [1,2,3,4], calling "@" results in [1,4,2,3].
-    pub fn swap_three(&mut self) { // Is there a better way to do this?
+    pub fn swap_three(&mut self) {
+        // Is there a better way to do this?
         let len = self.s.len();
-        let end = self.s[len-1];
-        self.s[len-1] = self.s[len-2];
-        self.s[len-2] = self.s[len-3];
-        self.s[len-3] = end;
+        let end = self.s[len - 1];
+        self.s[len - 1] = self.s[len - 2];
+        self.s[len - 2] = self.s[len - 3];
+        self.s[len - 3] = end;
     }
 
     /// shift_right implements "}".
@@ -122,7 +126,7 @@ impl Stack {
     /// get_bytes removes c values from the stack, then returns them as a byte vector.
     pub fn get_bytes(&mut self, count: usize) -> Vec<u8> {
         let len = self.s.len();
-        let vals = self.s.drain(len-count..len).as_slice().to_vec();
+        let vals = self.s.drain(len - count..len).as_slice().to_vec();
         let mut out = vec![0; vals.len()];
         for i in 0..vals.len() {
             out[i] = vals[i] as u8;
@@ -176,7 +180,7 @@ impl CodeBox {
         stacks.push(Stack::new(stack));
 
         let (stdin_in, stdin_out) = channel();
-        thread::spawn(move|| {
+        thread::spawn(move || {
             let mut stdin = io::stdin();
 
             loop {
@@ -187,10 +191,10 @@ impl CodeBox {
                         if v > 0 {
                             _ = stdin_in.send(bs[0]);
                         }
-                    },
+                    }
                     Err(_e) => {
                         return;
-                    },
+                    }
                 }
             }
         });
@@ -227,27 +231,27 @@ impl CodeBox {
                 if self.f_x >= self.width {
                     self.f_x = 0;
                 }
-            },
+            }
             Direction::Down => {
                 self.f_y += 1;
                 if self.f_y >= self.height {
                     self.f_y = 0;
                 }
-            },
+            }
             Direction::Left => {
                 if self.f_x > 0 {
                     self.f_x -= 1;
                 } else {
                     self.f_x = self.width - 1;
                 }
-            },
+            }
             Direction::Up => {
                 if self.f_y > 0 {
                     self.f_y -= 1;
                 } else {
                     self.f_y = self.height - 1;
                 }
-            },
+            }
         }
     }
 
@@ -259,20 +263,20 @@ impl CodeBox {
                 self.f_dir = Direction::Right;
                 self.was_left = false;
                 return (None, false);
-            },
+            }
             b'v' => {
                 self.f_dir = Direction::Down;
                 return (None, false);
-            },
+            }
             b'<' => {
                 self.f_dir = Direction::Left;
                 self.was_left = true;
                 return (None, false);
-            },
+            }
             b'^' => {
                 self.f_dir = Direction::Up;
                 return (None, false);
-            },
+            }
             b'|' => {
                 if self.f_dir == Direction::Right {
                     self.f_dir = Direction::Left;
@@ -282,7 +286,7 @@ impl CodeBox {
                     self.was_left = false;
                 }
                 return (None, false);
-            },
+            }
             b'_' => {
                 if self.f_dir == Direction::Down {
                     self.f_dir = Direction::Up;
@@ -290,52 +294,52 @@ impl CodeBox {
                     self.f_dir = Direction::Down;
                 }
                 return (None, false);
-            },
+            }
             b'#' => {
                 match self.f_dir {
                     Direction::Right => {
                         self.f_dir = Direction::Left;
                         self.was_left = true;
-                    },
+                    }
                     Direction::Down => self.f_dir = Direction::Up,
                     Direction::Left => {
                         self.f_dir = Direction::Right;
                         self.was_left = false;
-                    },
+                    }
                     Direction::Up => self.f_dir = Direction::Down,
                 }
                 return (None, false);
-            },
+            }
             b'/' => {
                 match self.f_dir {
                     Direction::Right => self.f_dir = Direction::Up,
                     Direction::Down => {
                         self.f_dir = Direction::Left;
                         self.was_left = true;
-                    },
+                    }
                     Direction::Left => self.f_dir = Direction::Down,
                     Direction::Up => {
                         self.f_dir = Direction::Right;
                         self.was_left = false;
-                    },
+                    }
                 }
                 return (None, false);
-            },
+            }
             b'\\' => {
                 match self.f_dir {
                     Direction::Right => self.f_dir = Direction::Down,
                     Direction::Down => {
                         self.f_dir = Direction::Right;
                         self.was_left = false;
-                    },
+                    }
                     Direction::Left => self.f_dir = Direction::Up,
                     Direction::Up => {
                         self.f_dir = Direction::Left;
                         self.was_left = true;
-                    },
+                    }
                 }
                 return (None, false);
-            },
+            }
             b'x' => {
                 self.f_dir = Direction::from_i32(rand::thread_rng().gen_range(0..4));
                 if self.f_dir == Direction::Right {
@@ -344,12 +348,12 @@ impl CodeBox {
                     self.was_left = true;
                 }
                 return (None, false);
-            },
+            }
             // *><> commands
             b'O' => {
                 self.deep_sea = false;
                 return (None, false);
-            },
+            }
             b'`' => {
                 if self.f_dir == Direction::Down || self.f_dir == Direction::Up {
                     if self.was_left {
@@ -385,8 +389,10 @@ impl CodeBox {
                 } else if self.string_mode == r {
                     self.string_mode = 0;
                 }
-            },
-            b'0' | b'1' | b'2' | b'3' | b'4' | b'5' | b'6' | b'7' | b'8' | b'9' => self.push((r - b'0') as f64),
+            }
+            b'0' | b'1' | b'2' | b'3' | b'4' | b'5' | b'6' | b'7' | b'8' | b'9' => {
+                self.push((r - b'0') as f64)
+            }
             b'a' | b'b' | b'c' | b'd' | b'e' | b'f' => self.push((r - b'a' + 10) as f64),
             b'&' => self.register(),
             b'o' => output = Some(char::from_u32(self.pop() as u32).unwrap().to_string()),
@@ -396,12 +402,12 @@ impl CodeBox {
                 let a = self.pop();
                 let res = self.pop() + a;
                 self.push(res);
-            },
+            }
             b'-' => {
                 let a = self.pop();
                 let res = self.pop() - a;
                 self.push(res);
-            },
+            }
             b'*' => {
                 let a = self.pop();
                 let res = self.pop() * a;
@@ -411,12 +417,12 @@ impl CodeBox {
                 let a = self.pop();
                 let res = self.pop() / a;
                 self.push(res);
-            },
+            }
             b'%' => {
                 let a = self.pop();
                 let res = self.pop().rem_euclid(a);
                 self.push(res);
-            },
+            }
             b'=' => {
                 let a = self.pop();
                 if self.pop() == a {
@@ -424,7 +430,7 @@ impl CodeBox {
                 } else {
                     self.push(0.0);
                 }
-            },
+            }
             b')' => {
                 let a = self.pop();
                 if self.pop() > a {
@@ -432,7 +438,7 @@ impl CodeBox {
                 } else {
                     self.push(0.0);
                 }
-            },
+            }
             b'(' => {
                 let a = self.pop();
                 if self.pop() < a {
@@ -440,17 +446,17 @@ impl CodeBox {
                 } else {
                     self.push(0.0);
                 }
-            },
+            }
             b'!' => self.shift(),
             b'?' => {
                 if self.pop() == 0.0 {
                     self.shift();
                 }
-            },
+            }
             b'.' => {
                 self.f_y = self.pop() as usize;
                 self.f_x = self.pop() as usize;
-            },
+            }
             b':' => self.extend_stack(),
             b'~' => _ = self.pop(),
             b'$' => self.stack_swap_two(),
@@ -461,27 +467,25 @@ impl CodeBox {
             b'[' => {
                 let size = self.pop() as usize;
                 self.new_stack(size);
-            },
+            }
             b'l' => self.stack_length(),
             b'g' => {
                 let y = self.pop() as usize;
                 let x = self.pop() as usize;
                 self.push(self.code_box[y][x] as f64);
-            },
+            }
             b'p' => {
                 let y = self.pop() as usize;
                 let x = self.pop() as usize;
                 let val = self.pop() as u8;
                 self.code_box[y][x] = val;
-            },
+            }
             b'i' => {
                 let mut r = -1.0;
                 match &self.file {
-                    None => {
-                        match self.stdin_out.try_recv() {
-                            Ok(v) => r = v as f64,
-                            Err(_e) => {},
-                        }
+                    None => match self.stdin_out.try_recv() {
+                        Ok(v) => r = v as f64,
+                        Err(_e) => {}
                     },
                     Some(_inner) => {
                         let mut bs = [0];
@@ -491,13 +495,13 @@ impl CodeBox {
                                 if v > 0 {
                                     r = bs[0] as f64;
                                 }
-                            },
-                            Err(_e) => {},
+                            }
+                            Err(_e) => {}
                         }
-                    },
+                    }
                 }
                 self.push(r);
-            },
+            }
             // *><> commands
             b'h' => self.push(Local::now().hour() as f64),
             b'm' => self.push(Local::now().minute() as f64),
@@ -505,7 +509,7 @@ impl CodeBox {
             b'S' => {
                 _ = stdout().flush();
                 thread::sleep(time::Duration::from_millis(self.pop() as u64 * 100));
-            },
+            }
             b'u' => self.deep_sea = true,
             b'F' => {
                 let count = self.pop() as usize;
@@ -515,27 +519,27 @@ impl CodeBox {
                         self.file = None;
                         let mut file = File::create(&self.file_path).unwrap();
                         _ = file.write_all(&vals);
-                    },
+                    }
                     None => {
                         self.file_path = str::from_utf8(&vals).unwrap().to_string();
                         let file_res = File::open(&self.file_path);
                         match file_res {
                             Ok(v) => {
                                 self.file = Some(v);
-                            },
+                            }
                             Err(_e) => {
                                 self.file = Some(File::create(&self.file_path).unwrap());
                                 self.file = Some(File::open(&self.file_path).unwrap());
-                            },
+                            }
                         }
-                    },
+                    }
                 }
-            },
+            }
             b'C' => self.call(),
             b'R' => self.ret(),
             b'I' => self.p += 1,
             b'D' => self.p -= 1,
-            _ => panic!("something smells fishy...{}", r)
+            _ => panic!("something smells fishy...{}", r),
         }
 
         return (output, false);
@@ -624,9 +628,13 @@ impl CodeBox {
     /// new_stack implements "[".
     pub fn new_stack(&mut self, n: usize) {
         let len = self.stacks[self.p].s.len();
-        let vals = self.stacks[self.p].s.drain(len-n..len).as_slice().to_vec();
+        let vals = self.stacks[self.p]
+            .s
+            .drain(len - n..len)
+            .as_slice()
+            .to_vec();
         self.p += 1;
-        self.stacks.insert(self.p, Stack::new(Some(vals)));        
+        self.stacks.insert(self.p, Stack::new(Some(vals)));
         if self.compatibility_mode {
             self.stacks[self.p].reverse(); // This is done to match the old fishlanguage.com interpreter.
         }
@@ -634,7 +642,10 @@ impl CodeBox {
 
     /// call implements "C".
     pub fn call(&mut self) {
-        self.stacks.insert(self.p, Stack::new(Some(vec![self.f_x as f64, self.f_y as f64])));
+        self.stacks.insert(
+            self.p,
+            Stack::new(Some(vec![self.f_x as f64, self.f_y as f64])),
+        );
         self.p += 1;
         self.f_y = self.pop() as usize;
         self.f_x = self.pop() as usize;

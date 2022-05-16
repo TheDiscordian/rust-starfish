@@ -8,6 +8,7 @@ repository = "https://github.com/TheDiscordian/rust-starfish/"
 documentation = "https://docs.rs/starfish"
 keywords = ["codegolf", "language"]
 categories = ["compilers"]
+license-file = "LICENSE"
 
 [lib]
 name = "starfish"

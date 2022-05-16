@@ -14,7 +14,7 @@ fn crash() {
 }
 
 #[derive(PartialEq)]
-pub enum Direction {
+enum Direction {
     Right,
     Down,
     Left,

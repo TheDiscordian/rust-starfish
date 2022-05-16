@@ -4,6 +4,10 @@ version = "1.0.0"
 edition = "2021"
 description = "*><> is a stack-based, reflective, two-dimensional esoteric programming language based directly off of ><>."
 authors = ["Discordian"]
+repository = "https://github.com/TheDiscordian/rust-starfish/"
+documentation = "https://docs.rs/starfish"
+keywords = ["codegolf", "language"]
+categories = ["compilers"]
 
 [lib]
 name = "starfish"

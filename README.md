@@ -1,7 +1,7 @@
-go-starfish
+rust-starfish
 ======
 
-A [\*><>](https://esolangs.org/wiki/Starfish)  interpreter written in Go. \*><> is a language derived from [><>](http://esolangs.org/wiki/Fish).
+A [\*><>](https://esolangs.org/wiki/Starfish)  interpreter written in Rust. \*><> is a language derived from [><>](http://esolangs.org/wiki/Fish).
 
 Building
 ---------------

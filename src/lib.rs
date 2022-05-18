@@ -768,6 +768,7 @@ impl CodeBox {
         return (self.width, self.height);
     }
 
+    /// code_box outputs a copy of the current state of the codebox.
     pub fn code_box(&self) -> Vec<Vec<u8>> {
         return self.code_box.to_vec();
     }

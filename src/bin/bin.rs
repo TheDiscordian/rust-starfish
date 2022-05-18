@@ -9,9 +9,9 @@ struct Args {
     #[clap()]
     path: String,
 
-    /// Initial stack
-    #[clap(short = 's', long, multiple_values(true))]
-    stack: Option<Vec<f64>>,
+    /// Initial stack (example: --stack "10 'olleh'")
+    #[clap(short = 's', long)]
+    stack: Option<String>,
 
     /// Output stack each tick
     #[clap(short = 'S', long = "output-stack")]
@@ -28,7 +28,12 @@ struct Args {
 
 pub fn main() {
     let args = Args::parse();
-    let mut codebox = CodeBox::new(&fs::read_to_string(args.path).unwrap(), args.stack, false);
+    let stack: Stack;
+    match args.stack {
+        None => stack = Stack::new(None),
+        Some(v) => stack = Stack::from_string(&v).unwrap(),
+    }
+    let mut codebox = CodeBox::new(&fs::read_to_string(args.path).unwrap(), stack, false);
 
     let mut end = false;
     let mut output: Option<String>;

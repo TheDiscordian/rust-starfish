@@ -1,9 +1,17 @@
 // Spec: https://esolangs.org/wiki/Starfish
+use std::error::Error;
+#[cfg(not(target_arch = "wasm32"))]
 use std::fs::File;
-use std::io::{stdout, Read, Write};
+#[cfg(not(target_arch = "wasm32"))]
+use std::io;
+#[cfg(not(target_arch = "wasm32"))]
+use std::io::Read;
+use std::io::{stdout, Write};
 use std::process;
+#[cfg(target_arch = "wasm32")]
+use std::sync::mpsc::Sender;
 use std::sync::mpsc::{channel, Receiver};
-use std::{char, io, panic, str, thread, time};
+use std::{char, panic, str, thread, time};
 
 use chrono::prelude::*;
 use rand::Rng;
@@ -53,6 +61,46 @@ impl Stack {
             register: 0.0,
             filled_register: false,
         }
+    }
+
+    pub fn from_string(str_stack: &str) -> Result<Stack, Box<dyn Error>> {
+        let mut s: Vec<f64> = Vec::new();
+        let mut str_mode: u8 = 0;
+        let mut cur_str = String::new();
+
+        for b in str_stack.bytes() {
+            if str_mode != 0 && b != str_mode {
+                s.push(b as f64);
+                continue;
+            }
+            match b {
+                b' ' => {
+                    if cur_str.len() > 0 {
+                        let f: f64 = cur_str.parse()?;
+                        cur_str = String::new();
+                        s.push(f);
+                    }
+                }
+                b'\'' | b'"' => {
+                    if str_mode == 0 {
+                        str_mode = b;
+                    } else {
+                        str_mode = 0;
+                    }
+                }
+                b'0' | b'1' | b'2' | b'3' | b'4' | b'5' | b'6' | b'7' | b'8' | b'9' | b'.' => {
+                    cur_str.push(b as char);
+                }
+                _ => return Err("Invalid initial stack")?,
+            }
+        }
+
+        if cur_str.len() > 0 {
+            let f: f64 = cur_str.parse()?;
+            s.push(f);
+        }
+
+        return Ok(Stack::new(Some(s)));
     }
 
     /// output information about the stack
@@ -150,15 +198,19 @@ pub struct CodeBox {
     string_mode: u8,
     compatibility_mode: bool,
     deep_sea: bool,
+    #[cfg(not(target_arch = "wasm32"))]
     file: Option<File>,
+    #[cfg(not(target_arch = "wasm32"))]
     file_path: String,
     stdin_out: Receiver<u8>,
+    #[cfg(target_arch = "wasm32")]
+    stdin_in: Sender<u8>,
 }
 
 impl CodeBox {
     /// new returns a new CodeBox. "script" should be a complete *><> script, "stack" should
     /// be the initial stack, and compatibility_mode should be set if old fishinterpreter.com behaviour is needed.
-    pub fn new(script: &str, stack: Option<Vec<f64>>, compatibility_mode: bool) -> CodeBox {
+    pub fn new(script: &str, stack: Stack, compatibility_mode: bool) -> CodeBox {
         let height = script.lines().count();
         let mut width = 0;
         for line in script.lines() {
@@ -177,27 +229,30 @@ impl CodeBox {
         }
 
         let mut stacks = Vec::new();
-        stacks.push(Stack::new(stack));
+        stacks.push(stack);
 
         let (stdin_in, stdin_out) = channel();
-        thread::spawn(move || {
-            let mut stdin = io::stdin();
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            thread::spawn(move || {
+                let mut stdin = io::stdin();
 
-            loop {
-                let mut bs: [u8; 1] = [0];
-                let read_res = stdin.read(&mut bs);
-                match read_res {
-                    Ok(v) => {
-                        if v > 0 {
-                            _ = stdin_in.send(bs[0]);
+                loop {
+                    let mut bs: [u8; 1] = [0];
+                    let read_res = stdin.read(&mut bs);
+                    match read_res {
+                        Ok(v) => {
+                            if v > 0 {
+                                _ = stdin_in.send(bs[0]);
+                            }
+                        }
+                        Err(_e) => {
+                            return;
                         }
                     }
-                    Err(_e) => {
-                        return;
-                    }
                 }
-            }
-        });
+            });
+        }
 
         panic::set_hook(Box::new(|_| {
             crash();
@@ -217,9 +272,21 @@ impl CodeBox {
             string_mode: 0,
             compatibility_mode: compatibility_mode,
             deep_sea: false,
+            #[cfg(not(target_arch = "wasm32"))]
             file: None,
+            #[cfg(not(target_arch = "wasm32"))]
             file_path: String::new(),
             stdin_out: stdin_out,
+            #[cfg(target_arch = "wasm32")]
+            stdin_in: stdin_in,
+        }
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    /// inject_input acts like stdin, inserting whatever Vec<u8> is passed
+    pub fn inject_input(&self, inp: Vec<u8>) {
+        for i in inp {
+            _ = self.stdin_in.send(i);
         }
     }
 
@@ -482,22 +549,32 @@ impl CodeBox {
             }
             b'i' => {
                 let mut r = -1.0;
-                match &self.file {
-                    None => match self.stdin_out.try_recv() {
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    match &self.file {
+                        None => match self.stdin_out.try_recv() {
+                            Ok(v) => r = v as f64,
+                            Err(_e) => {}
+                        },
+                        Some(_inner) => {
+                            let mut bs = [0];
+                            let read_res = self.file.as_ref().unwrap().read(&mut bs);
+                            match read_res {
+                                Ok(v) => {
+                                    if v > 0 {
+                                        r = bs[0] as f64;
+                                    }
+                                }
+                                Err(_e) => {}
+                            }
+                        }
+                    }
+                }
+                #[cfg(target_arch = "wasm32")]
+                {
+                    match self.stdin_out.try_recv() {
                         Ok(v) => r = v as f64,
                         Err(_e) => {}
-                    },
-                    Some(_inner) => {
-                        let mut bs = [0];
-                        let read_res = self.file.as_ref().unwrap().read(&mut bs);
-                        match read_res {
-                            Ok(v) => {
-                                if v > 0 {
-                                    r = bs[0] as f64;
-                                }
-                            }
-                            Err(_e) => {}
-                        }
                     }
                 }
                 self.push(r);
@@ -512,24 +589,29 @@ impl CodeBox {
             }
             b'u' => self.deep_sea = true,
             b'F' => {
-                let count = self.pop() as usize;
-                let vals = self.stacks[self.p].get_bytes(count);
-                match &self.file {
-                    Some(_inner) => {
-                        self.file = None;
-                        let mut file = File::create(&self.file_path).unwrap();
-                        _ = file.write_all(&vals);
-                    }
-                    None => {
-                        self.file_path = str::from_utf8(&vals).unwrap().to_string();
-                        let file_res = File::open(&self.file_path);
-                        match file_res {
-                            Ok(v) => {
-                                self.file = Some(v);
-                            }
-                            Err(_e) => {
-                                self.file = Some(File::create(&self.file_path).unwrap());
-                                self.file = Some(File::open(&self.file_path).unwrap());
+                #[cfg(target_arch = "wasm32")]
+                return (Some(String::from("\nsomething smells fishy...")), true);
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    let count = self.pop() as usize;
+                    let vals = self.stacks[self.p].get_bytes(count);
+                    match &self.file {
+                        Some(_inner) => {
+                            self.file = None;
+                            let mut file = File::create(&self.file_path).unwrap();
+                            _ = file.write_all(&vals);
+                        }
+                        None => {
+                            self.file_path = str::from_utf8(&vals).unwrap().to_string();
+                            let file_res = File::open(&self.file_path);
+                            match file_res {
+                                Ok(v) => {
+                                    self.file = Some(v);
+                                }
+                                Err(_e) => {
+                                    self.file = Some(File::create(&self.file_path).unwrap());
+                                    self.file = Some(File::open(&self.file_path).unwrap());
+                                }
                             }
                         }
                     }
@@ -539,7 +621,7 @@ impl CodeBox {
             b'R' => self.ret(),
             b'I' => self.p += 1,
             b'D' => self.p -= 1,
-            _ => panic!("something smells fishy...{}", r),
+            _ => return (Some(String::from("\nsomething smells fishy...")), true),
         }
 
         return (output, false);
@@ -679,5 +761,14 @@ impl CodeBox {
     /// print_stack outputs the current stack to stdout.
     pub fn print_stack(&self) {
         self.stacks[self.p].output();
+    }
+
+    /// size returns the width and height of the codebox.
+    pub fn size(&self) -> (usize, usize) {
+        return (self.width, self.height);
+    }
+
+    pub fn code_box(&self) -> Vec<Vec<u8>> {
+        return self.code_box.to_vec();
     }
 }

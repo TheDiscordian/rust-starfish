@@ -19,7 +19,7 @@ Usage
 
 ```
 $ starfish -h            
-starfish 1.0.0
+starfish 1.1.0
 *><> is a stack-based, reflective, two-dimensional esoteric programming language based directly off
 of ><>.
 
@@ -30,10 +30,10 @@ ARGS:
     <PATH>    Path to *><> script
 
 OPTIONS:
-    -c, --output-codebox      Output codebox each tick
-    -d, --delay <DELAY>       Delay between each tick in milliseconds [default: 0]
-    -h, --help                Print help information
-    -s, --stack <STACK>...    Initial stack
-    -S, --output-stack        Output stack each tick
-    -V, --version             Print version information
+    -c, --output-codebox    Output codebox each tick
+    -d, --delay <DELAY>     Delay between each tick in milliseconds [default: 0]
+    -h, --help              Print help information
+    -s, --stack <STACK>     Initial stack (example: --stack "10 'olleh'")
+    -S, --output-stack      Output stack each tick
+    -V, --version           Print version information
 ```

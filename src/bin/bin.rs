@@ -37,6 +37,7 @@ pub fn main() {
 
     let mut end = false;
     let mut output: Option<String>;
+    let mut sleep_ms: f64;
 
     while !end {
         if args.output_codebox {
@@ -46,12 +47,15 @@ pub fn main() {
             codebox.print_stack();
         }
 
-        (output, end) = codebox.swim();
+        (output, end, sleep_ms) = codebox.swim();
         match output {
             Some(val) => print!("{}", val),
             None => {}
         }
 
+        if sleep_ms > 0.0 {
+            thread::sleep(time::Duration::from_millis(sleep_ms as u64));
+        }
         if args.delay > 0 {
             thread::sleep(time::Duration::from_millis(args.delay));
         }

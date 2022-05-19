@@ -11,7 +11,9 @@ use std::process;
 #[cfg(target_arch = "wasm32")]
 use std::sync::mpsc::Sender;
 use std::sync::mpsc::{channel, Receiver};
-use std::{char, panic, str, thread, time};
+use std::{char, panic, str};
+#[cfg(not(target_arch = "wasm32"))]
+use std::thread;
 
 use chrono::prelude::*;
 use rand::Rng;
@@ -104,11 +106,8 @@ impl Stack {
     }
 
     /// output information about the stack
-    pub fn output(&self) {
-        println!(
-            "stack: {:?}\nregister: {}, filled_register: {}",
-            self.s, self.register, self.filled_register
-        );
+    pub fn to_string(&self) -> String {
+        return format!("{:?}", self.s);
     }
 
     /// push r to the end of the stack
@@ -323,26 +322,27 @@ impl CodeBox {
     }
 
     /// exe executes the instruction the ><> is currently on top of. It returns the string it intends to output (None if none) and true when it executes ";".
-    pub fn exe(&mut self, r: u8) -> (Option<String>, bool) {
+    /// It also returns the time it should sleep for.
+    pub fn exe(&mut self, r: u8) -> (Option<String>, bool, f64) {
         match r {
-            b' ' => return (None, false),
+            b' ' => return (None, false, 0.0),
             b'>' => {
                 self.f_dir = Direction::Right;
                 self.was_left = false;
-                return (None, false);
+                return (None, false, 0.0);
             }
             b'v' => {
                 self.f_dir = Direction::Down;
-                return (None, false);
+                return (None, false, 0.0);
             }
             b'<' => {
                 self.f_dir = Direction::Left;
                 self.was_left = true;
-                return (None, false);
+                return (None, false, 0.0);
             }
             b'^' => {
                 self.f_dir = Direction::Up;
-                return (None, false);
+                return (None, false, 0.0);
             }
             b'|' => {
                 if self.f_dir == Direction::Right {
@@ -352,7 +352,7 @@ impl CodeBox {
                     self.f_dir = Direction::Right;
                     self.was_left = false;
                 }
-                return (None, false);
+                return (None, false, 0.0);
             }
             b'_' => {
                 if self.f_dir == Direction::Down {
@@ -360,7 +360,7 @@ impl CodeBox {
                 } else if self.f_dir == Direction::Up {
                     self.f_dir = Direction::Down;
                 }
-                return (None, false);
+                return (None, false, 0.0);
             }
             b'#' => {
                 match self.f_dir {
@@ -375,7 +375,7 @@ impl CodeBox {
                     }
                     Direction::Up => self.f_dir = Direction::Down,
                 }
-                return (None, false);
+                return (None, false, 0.0);
             }
             b'/' => {
                 match self.f_dir {
@@ -390,7 +390,7 @@ impl CodeBox {
                         self.was_left = false;
                     }
                 }
-                return (None, false);
+                return (None, false, 0.0);
             }
             b'\\' => {
                 match self.f_dir {
@@ -405,7 +405,7 @@ impl CodeBox {
                         self.was_left = true;
                     }
                 }
-                return (None, false);
+                return (None, false, 0.0);
             }
             b'x' => {
                 self.f_dir = Direction::from_i32(rand::thread_rng().gen_range(0..4));
@@ -414,12 +414,12 @@ impl CodeBox {
                 } else {
                     self.was_left = true;
                 }
-                return (None, false);
+                return (None, false, 0.0);
             }
             // *><> commands
             b'O' => {
                 self.deep_sea = false;
-                return (None, false);
+                return (None, false, 0.0);
             }
             b'`' => {
                 if self.f_dir == Direction::Down || self.f_dir == Direction::Up {
@@ -437,19 +437,19 @@ impl CodeBox {
                         self.escaped_hook = true;
                     }
                 }
-                return (None, false);
+                return (None, false, 0.0);
             }
             _ => {}
         }
 
         if self.deep_sea {
-            return (None, false);
+            return (None, false, 0.0);
         }
 
         let mut output = None;
 
         match r {
-            b';' => return (None, true),
+            b';' => return (None, true, 0.0),
             b'"' | b'\'' => {
                 if self.string_mode == 0 {
                     self.string_mode = r;
@@ -585,12 +585,12 @@ impl CodeBox {
             b's' => self.push(Local::now().second() as f64),
             b'S' => {
                 _ = stdout().flush();
-                thread::sleep(time::Duration::from_millis(self.pop() as u64 * 100));
+                return (output, false, self.pop() * 100.0);
             }
             b'u' => self.deep_sea = true,
             b'F' => {
                 #[cfg(target_arch = "wasm32")]
-                return (Some(String::from("\nsomething smells fishy...")), true);
+                return (Some(String::from("\nsomething smells fishy...")), true, 0.0);
                 #[cfg(not(target_arch = "wasm32"))]
                 {
                     let count = self.pop() as usize;
@@ -621,14 +621,14 @@ impl CodeBox {
             b'R' => self.ret(),
             b'I' => self.p += 1,
             b'D' => self.p -= 1,
-            _ => return (Some(String::from("\nsomething smells fishy...")), true),
+            _ => return (Some(String::from("\nsomething smells fishy...")), true, 0.0),
         }
 
-        return (output, false);
+        return (output, false, 0.0);
     }
 
     /// swim causes the ><> to execute an instruction, then move. It returns a string of non-zero length when it has output and true when it encounters ";".
-    pub fn swim(&mut self) -> (Option<String>, bool) {
+    pub fn swim(&mut self) -> (Option<String>, bool, f64) {
         let y = self.f_y;
         let x = self.f_x;
         let r = self.code_box[y][x];
@@ -636,14 +636,16 @@ impl CodeBox {
 
         let mut output = None;
         let mut end = false;
+        let mut sleep_ms: f64 = 0.0;
 
         if string_mode && r != self.string_mode {
             self.push(r as f64);
         } else {
-            (output, end) = self.exe(r);
+            (output, end, sleep_ms) = self.exe(r);
+
         }
         self.shift();
-        return (output, end);
+        return (output, end, sleep_ms);
     }
 
     /// push appends r to the end of the current stack.
@@ -758,9 +760,9 @@ impl CodeBox {
         }
     }
 
-    /// print_stack outputs the current stack to stdout.
-    pub fn print_stack(&self) {
-        self.stacks[self.p].output();
+    /// string_stack outputs the current stack to stdout.
+    pub fn string_stack(&self) -> String {
+        self.stacks[self.p].to_string()
     }
 
     /// size returns the width and height of the codebox.
@@ -771,5 +773,15 @@ impl CodeBox {
     /// code_box outputs a copy of the current state of the codebox.
     pub fn code_box(&self) -> Vec<Vec<u8>> {
         return self.code_box.to_vec();
+    }
+
+    /// deep_sea returns if the ><> is in deepsea mode or not
+    pub fn deep_sea(&self) -> bool {
+        return self.deep_sea;
+    }
+
+    /// position returns the x/y coordinates of the ><>
+    pub fn position(&self) -> (usize, usize) {
+        return (self.f_x, self.f_y);
     }
 }

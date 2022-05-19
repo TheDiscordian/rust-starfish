@@ -44,7 +44,7 @@ pub fn main() {
             codebox.print(false);
         }
         if args.output_stack {
-            codebox.print_stack();
+            println!("Stack: {}", codebox.string_stack());
         }
 
         (output, end, sleep_ms) = codebox.swim();

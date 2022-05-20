@@ -11,9 +11,9 @@ use std::process;
 #[cfg(target_arch = "wasm32")]
 use std::sync::mpsc::Sender;
 use std::sync::mpsc::{channel, Receiver};
-use std::{char, panic, str};
 #[cfg(not(target_arch = "wasm32"))]
 use std::thread;
+use std::{char, panic, str};
 
 use chrono::prelude::*;
 use rand::Rng;
@@ -642,7 +642,6 @@ impl CodeBox {
             self.push(r as f64);
         } else {
             (output, end, sleep_ms) = self.exe(r);
-
         }
         self.shift();
         return (output, end, sleep_ms);
@@ -760,7 +759,7 @@ impl CodeBox {
         }
     }
 
-    /// string_stack outputs the current stack to stdout.
+    /// string_stack returns a copy of the current stack as a string.
     pub fn string_stack(&self) -> String {
         self.stacks[self.p].to_string()
     }
@@ -775,12 +774,12 @@ impl CodeBox {
         return self.code_box.to_vec();
     }
 
-    /// deep_sea returns if the ><> is in deepsea mode or not
+    /// deep_sea returns if the ><> is in deepsea mode or not.
     pub fn deep_sea(&self) -> bool {
         return self.deep_sea;
     }
 
-    /// position returns the x/y coordinates of the ><>
+    /// position returns the x/y coordinates of the ><>.
     pub fn position(&self) -> (usize, usize) {
         return (self.f_x, self.f_y);
     }

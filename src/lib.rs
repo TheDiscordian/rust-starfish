@@ -463,7 +463,7 @@ impl CodeBox {
             b'a' | b'b' | b'c' | b'd' | b'e' | b'f' => self.push((r - b'a' + 10) as f64),
             b'&' => self.register(),
             b'o' => output = Some(char::from_u32(self.pop() as u32).unwrap().to_string()),
-            b'n' => output = Some((self.pop() as u32).to_string()),
+            b'n' => output = Some((self.pop() as i64).to_string()),
             b'r' => self.reverse_stack(),
             b'+' => {
                 let a = self.pop();
